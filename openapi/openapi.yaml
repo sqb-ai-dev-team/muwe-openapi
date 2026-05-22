@@ -1,14 +1,81 @@
 openapi: 3.1.0
 info:
   title: MUWE OpenAPI
-  version: 0.1.0
-  description: Partner-facing payment API contract for MUWE Mexico.
+  version: 0.2.0
+  description: Partner-facing Upay-compatible payment API contract for MUWE Mexico.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
 servers:
   - url: https://vsi-api.shouqianba.com
     description: Upay-compatible API host
 security:
   - UpaySignature: []
 paths:
+  /terminal/activate:
+    post:
+      summary: Activate a terminal
+      operationId: activateTerminal
+      tags: [Terminal]
+      description: Signed with vendor_sn and vendor_key. Returns terminal credentials.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateRequest'
+      responses:
+        '200':
+          description: Activation response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalCredentialResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
+  /terminal/checkin:
+    post:
+      summary: Check in a terminal
+      operationId: checkinTerminal
+      tags: [Terminal]
+      description: Signed with terminal_sn and current terminal_key. Returns refreshed terminal credentials.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinRequest'
+      responses:
+        '200':
+          description: Check-in response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalCredentialResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
+  /terminal/uploadLog:
+    post:
+      summary: Upload terminal logs
+      operationId: uploadTerminalLog
+      tags: [Terminal]
+      description: Signed with terminal_sn and terminal_key. The request body is a gzip-compressed binary log stream.
+      requestBody:
+        required: true
+        content:
+          application/gzip:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Log upload response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/pay:
     post:
       summary: Create a barcode payment
@@ -27,6 +94,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/precreate:
     post:
       summary: Pre-create a QR payment order
@@ -45,6 +114,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/query:
     post:
       summary: Query a transaction
@@ -63,6 +134,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/refund:
     post:
       summary: Refund a transaction
@@ -81,6 +154,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/cancel:
     post:
       summary: Cancel a transaction
@@ -91,7 +166,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClientOrderRequest'
+              $ref: '#/components/schemas/OrderLocatorRequest'
       responses:
         '200':
           description: Cancel response
@@ -99,6 +174,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
   /upay/v2/revoke:
     post:
       summary: Revoke a transaction
@@ -109,7 +186,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClientOrderRequest'
+              $ref: '#/components/schemas/OrderLocatorRequest'
       responses:
         '200':
           description: Revoke response
@@ -117,7 +194,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/RequestError'
 components:
+  responses:
+    RequestError:
+      description: Request-level validation, signature, or terminal error. The Upay-compatible envelope may also return request errors with HTTP 200 and `result_code` set to `400` or `500`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RequestResponse'
   securitySchemes:
     UpaySignature:
       type: apiKey
@@ -125,9 +211,89 @@ components:
       name: Authorization
       description: '`Authorization: <sn> <MD5(raw_utf8_body + key)>`'
   schemas:
-    PayRequest:
+    ActivateRequest:
       type: object
-      required: [terminal_sn, client_sn, total_amount, dynamic_id, subject, operator]
+      required: [app_id, code, device_id]
+      properties:
+        app_id:
+          type: string
+          description: Vendor application ID.
+        code:
+          type: string
+          description: Terminal activation code.
+        client_sn:
+          type: string
+          maxLength: 32
+          description: Terminal identifier in the partner system.
+        name:
+          type: string
+        device_id:
+          type: string
+          maxLength: 32
+        os_info:
+          type: string
+        sdk_version:
+          type: string
+    CheckinRequest:
+      type: object
+      required: [terminal_sn, device_id]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        device_id:
+          type: string
+          maxLength: 32
+        os_info:
+          type: string
+        sdk_version:
+          type: string
+    TerminalCredentialResponse:
+      type: object
+      required: [result_code]
+      properties:
+        result_code:
+          $ref: '#/components/schemas/RequestResultCode'
+        error_code:
+          $ref: '#/components/schemas/RequestErrorCode'
+        error_message:
+          type: string
+        biz_response:
+          type: object
+          properties:
+            terminal_sn:
+              type: string
+              maxLength: 32
+            terminal_key:
+              type: string
+    PayRequest:
+      allOf:
+        - $ref: '#/components/schemas/PaymentBaseRequest'
+        - type: object
+          required: [dynamic_id]
+          properties:
+            payway:
+              $ref: '#/components/schemas/Payway'
+            dynamic_id:
+              type: string
+              maxLength: 32
+              description: Customer payment barcode.
+    PrecreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/PaymentBaseRequest'
+        - type: object
+          required: [payway]
+          properties:
+            payway:
+              $ref: '#/components/schemas/Payway'
+            sub_payway:
+              $ref: '#/components/schemas/SubPayway'
+            payer_uid:
+              type: string
+              maxLength: 64
+    PaymentBaseRequest:
+      type: object
+      required: [terminal_sn, client_sn, total_amount, subject, operator]
       properties:
         terminal_sn:
           type: string
@@ -135,15 +301,12 @@ components:
         client_sn:
           type: string
           maxLength: 32
+          description: Unique order number in the partner system.
         total_amount:
           type: string
           maxLength: 10
+          pattern: '^[0-9]+$'
           description: Amount in cents.
-        payway:
-          type: string
-        dynamic_id:
-          type: string
-          maxLength: 32
         subject:
           type: string
           maxLength: 64
@@ -155,15 +318,15 @@ components:
           maxLength: 255
         longitude:
           type: string
+          description: Must be sent together with latitude.
         latitude:
           type: string
+          description: Must be sent together with longitude.
         device_id:
           type: string
           maxLength: 32
         extended:
-          type: object
-          additionalProperties:
-            type: string
+          $ref: '#/components/schemas/ExtendedFields'
         goods_details:
           type: array
           items:
@@ -174,50 +337,57 @@ components:
         notify_url:
           type: string
           maxLength: 128
-    PrecreateRequest:
-      allOf:
-        - $ref: '#/components/schemas/PayRequest'
-        - type: object
-          required: [payway]
-          properties:
-            sub_payway:
-              type: string
-            payer_uid:
-              type: string
-              maxLength: 64
     QueryRequest:
       allOf:
-        - $ref: '#/components/schemas/ClientOrderRequest'
+        - $ref: '#/components/schemas/OrderLocatorRequest'
+        - type: object
+          properties:
+            refund_request_no:
+              type: string
+              maxLength: 20
+              description: Refund request number for querying a partial refund result.
     RefundRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderLocatorRequest'
+        - type: object
+          required: [refund_request_no, refund_amount, operator]
+          properties:
+            refund_request_no:
+              type: string
+              maxLength: 20
+              description: Idempotency key for one refund request.
+            refund_amount:
+              type: string
+              maxLength: 10
+              pattern: '^[0-9]+$'
+              description: Refund amount in cents.
+            operator:
+              type: string
+              maxLength: 32
+            extended:
+              $ref: '#/components/schemas/ExtendedFields'
+            goods_details:
+              type: array
+              items:
+                $ref: '#/components/schemas/GoodsDetail'
+    OrderLocatorRequest:
       type: object
-      required: [terminal_sn, client_sn, refund_request_no, refund_amount, operator]
+      required: [terminal_sn]
+      anyOf:
+        - required: [sn]
+        - required: [client_sn]
       properties:
         terminal_sn:
           type: string
           maxLength: 32
+        sn:
+          type: string
+          maxLength: 16
+          description: MUWE order serial number. Has priority over client_sn when both are present.
         client_sn:
           type: string
           maxLength: 32
-        refund_request_no:
-          type: string
-          maxLength: 32
-        refund_amount:
-          type: string
-          maxLength: 10
-          description: Refund amount in cents.
-        operator:
-          type: string
-          maxLength: 32
-    ClientOrderRequest:
-      type: object
-      required: [terminal_sn, client_sn]
-      properties:
-        terminal_sn:
-          type: string
-          maxLength: 32
-        client_sn:
-          type: string
-          maxLength: 32
+          description: Partner order number.
     GoodsDetail:
       type: object
       required: [goods_id, goods_name, quantity, price, promotion_type]
@@ -230,73 +400,256 @@ components:
           maxLength: 32
         quantity:
           type: integer
+          maximum: 9999999999
         price:
           type: integer
+          maximum: 999999999
           description: Unit price in cents.
         promotion_type:
           type: integer
           enum: [0, 1]
+          description: 0 means no discount; 1 means institution discount.
+    ExtendedFields:
+      type: object
+      maxProperties: 24
+      additionalProperties:
+        type: string
+        maxLength: 256
     TransactionResponse:
       type: object
       required: [result_code]
       properties:
         result_code:
-          type: string
-          examples: ['200', '400', '500']
+          $ref: '#/components/schemas/RequestResultCode'
         error_code:
-          type: string
+          $ref: '#/components/schemas/RequestErrorCode'
         error_message:
           type: string
         biz_response:
           type: object
           properties:
             result_code:
-              type: string
+              $ref: '#/components/schemas/BusinessResultCode'
             error_code:
-              type: string
+              $ref: '#/components/schemas/BusinessErrorCode'
             error_message:
               type: string
             data:
               $ref: '#/components/schemas/TransactionData'
+    RequestResponse:
+      type: object
+      required: [result_code]
+      properties:
+        result_code:
+          $ref: '#/components/schemas/RequestResultCode'
+        error_code:
+          $ref: '#/components/schemas/RequestErrorCode'
+        error_message:
+          type: string
     TransactionData:
       type: object
       properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
         sn:
           type: string
+          maxLength: 16
+        tsn:
+          type: string
+          maxLength: 16
         client_sn:
           type: string
+          maxLength: 32
+        client_tsn:
+          type: string
+          maxLength: 53
         trade_no:
           type: string
+          maxLength: 128
+        ctime:
+          type: string
         status:
-          type: string
+          $ref: '#/components/schemas/TransactionStatus'
         order_status:
-          type: string
-          enum: [CREATED, PAID, PAY_CANCELED, REFUNDED, PARTIAL_REFUNDED, CANCELED, PAY_ERROR]
+          $ref: '#/components/schemas/OrderStatus'
         payway:
-          type: string
+          $ref: '#/components/schemas/Payway'
         payway_name:
           type: string
+          maxLength: 128
         sub_payway:
-          type: string
+          $ref: '#/components/schemas/SubPayway'
         payer_uid:
           type: string
+          maxLength: 64
         payer_login:
           type: string
+          maxLength: 128
         total_amount:
           type: string
+          maxLength: 10
+          pattern: '^[0-9]+$'
         net_amount:
           type: string
+          maxLength: 10
+          pattern: '^[0-9]+$'
         subject:
           type: string
+          maxLength: 64
         finish_time:
           type: string
+          maxLength: 13
+          description: Unix timestamp in milliseconds.
         channel_finish_time:
           type: string
+          maxLength: 13
+          description: Provider finish time in Unix milliseconds.
         operator:
           type: string
+          maxLength: 32
         reflect:
           type: string
+          maxLength: 64
         qr_code:
           type: string
+          maxLength: 128
         wap_pay_request:
           type: string
+          maxLength: 1024
+        store_id:
+          type: string
+        payment_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentListItem'
+    PaymentListItem:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/PreferentialType'
+        amount_total:
+          type: string
+          pattern: '^[0-9]+$'
+    RequestResultCode:
+      type: string
+      enum: ['200', '400', '500']
+    RequestErrorCode:
+      type: string
+      enum:
+        - INVALID_PARAMS
+        - INVALID_TERMINAL
+        - ILLEGAL_SIGN
+        - UNKNOWN_SYSTEM_ERROR
+        - REQUEST_FAIL
+        - EXTERNAL_SERVICE_EXCEPTION
+        - PAY_STATUS_CLOSED
+        - SUCCESS
+    BusinessResultCode:
+      type: string
+      enum:
+        - PAY_SUCCESS
+        - PAY_FAIL
+        - PAY_FAIL_ERROR
+        - PAY_IN_PROGRESS
+        - CANCEL_SUCCESS
+        - CANCEL_ERROR
+        - CANCEL_ABORT_ERROR
+        - CANCEL_ABORT_SUCCESS
+        - REFUND_SUCCESS
+        - REFUND_ERROR
+        - PRECREATE_SUCCESS
+        - PRECREATE_FAIL
+        - SUCCESS
+        - FAIL
+    BusinessErrorCode:
+      type: string
+      enum:
+        - INVALID_BARCODE
+        - INSUFFICIENT_FUND
+        - EXPIRED_BARCODE
+        - BUYER_OVER_DAILY_LIMIT
+        - BUYER_OVER_TRANSACTION_LIMIT
+        - SELLER_OVER_DAILY_LIMIT
+        - TRADE_NOT_EXIST
+        - TRADE_HAS_SUCCESS
+        - SELLER_BALANCE_NOT_ENOUGH
+        - REFUND_AMT_NOT_EQUAL_TOTAL
+        - TRADE_FAILED
+        - UNEXPECTED_PROVIDER_ERROR
+        - TRADE_TIMEOUT
+        - ACCOUNT_BALANCE_NOT_ENOUGH
+        - CLIENT_SN_CONFLICT
+        - UPAY_ORDER_NOT_EXIST
+        - UPAY_ORDER_NOT_EXISTS
+        - REFUNDABLE_AMOUNT_NOT_ENOUGH
+        - UPAY_TERMINAL_NOT_EXISTS
+        - UPAY_TERMINAL_STATUS_ABNORMAL
+        - UPAY_CANCEL_ORDER_NOOP
+        - UPAY_CANCEL_INVALID_ORDER_STATE
+        - UPAY_REFUND_ORDER_NOOP
+        - UPAY_REFUND_INVALID_ORDER_STATE
+        - UPAY_STORE_OVER_DAILY_LIMIT
+        - UPAY_TCP_ORDER_NOT_REFUNDABLE
+        - EXTERNAL_SERVICE_EXCEPTION
+    OrderStatus:
+      type: string
+      enum:
+        - CREATED
+        - PAID
+        - PAY_CANCELED
+        - PAY_ERROR
+        - REFUNDED
+        - PARTIAL_REFUNDED
+        - REFUND_INPROGRESS
+        - REFUND_ERROR
+        - CANCELED
+        - CANCEL_ERROR
+        - CANCEL_INPROGRESS
+        - INVALID_STATUS_CODE
+    TransactionStatus:
+      type: string
+      enum:
+        - SUCCESS
+        - FAIL_CANCELED
+        - FAIL_PROTOCOL_1
+        - FAIL_IO_1
+        - FAIL_PROTOCOL_2
+        - FAIL_IO_2
+        - FAIL_PROTOCOL_3
+        - FAIL_ERROR
+        - CANCEL_ERROR
+        - REFUND_ERROR
+        - CREATED
+        - ABORTED
+        - IN_PROG
+        - ERROR_RECOVERY
+        - PRE_SUCCESS
+    Payway:
+      type: string
+      enum: ['1', '3', '4', '5', '6', '7', '8', '9', '15', '16', '17', '18', '19', '20', '22', '100', '101']
+    SubPayway:
+      type: string
+      enum: ['1', '2', '3', '4', '5', '6']
+    PreferentialType:
+      type: string
+      enum:
+        - HONGBAO_WOSAI
+        - HONGBAO_WOSAI_MCH
+        - DISCOUNT_WOSAI
+        - DISCOUNT_WOSAI_MCH
+        - DISCOUNT_CHANNEL
+        - DISCOUNT_CHANNEL_MCH
+        - DISCOUNT_CHANNEL_MCH_TOP_UP
+        - HONGBAO_CHANNEL
+        - HONGBAO_CHANNEL_MCH
+        - HONGBAO_CHANNEL_MCH_TOP_UP
+        - CARD_PRE
+        - CARD_BALANCE
+        - BANKCARD_CREDIT
+        - BANKCARD_DEBIT
+        - WALLET_ALIPAY
+        - WALLET_ALIPAY_FINANCE
+        - WALLET_WEIXIN
+        - ALIPAY_HUABEI
+        - ALIPAY_POINT

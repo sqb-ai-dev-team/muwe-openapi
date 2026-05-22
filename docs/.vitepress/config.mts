@@ -24,7 +24,9 @@ export default defineConfig({
           ],
           '/api/': [
             { text: 'API Overview', link: '/api/' },
-            { text: 'Transactions', link: '/api/transactions' }
+            { text: 'Terminal APIs', link: '/api/terminal' },
+            { text: 'Transactions', link: '/api/transactions' },
+            { text: 'Appendix', link: '/api/appendix' }
           ]
         }
       }
@@ -47,7 +49,9 @@ export default defineConfig({
           ],
           '/es/api/': [
             { text: 'Resumen API', link: '/es/api/' },
-            { text: 'Transacciones', link: '/es/api/transactions' }
+            { text: 'APIs de Terminal', link: '/es/api/terminal' },
+            { text: 'Transacciones', link: '/es/api/transactions' },
+            { text: 'Apéndice', link: '/es/api/appendix' }
           ]
         }
       }
