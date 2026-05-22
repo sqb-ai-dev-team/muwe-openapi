@@ -33,7 +33,7 @@ jobs:
       - name: Build documentation
         run: npm run docs:build
         env:
-          DOCS_BASE: /muwe-openapi/
+          DOCS_BASE: /
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
