@@ -4,7 +4,7 @@
 
 | `sub_payway` | Metodo |
 | --- | --- |
-| `1` | Barcode Payment |
+| `1` | Credencial de pago presentada por el consumidor |
 | `2` | QR Code Payment |
 | `3` | WAP Payment |
 | `4` | Mini Payment |

@@ -2,14 +2,30 @@
 
 Payment APIs return request-level results in `result_code` and business results in `biz_response.result_code`. HTTP 200 does not mean the payment succeeded.
 
-## Barcode Payment
+<div class="process-flow" aria-label="Payment lifecycle">
+  <div class="process-flow__row">
+    <div class="process-flow__step"><strong>Create request</strong><span>Submit pay, pre-create, or a POS-bound order from the merchant system.</span></div>
+    <div class="process-flow__step"><strong>Consumer pays</strong><span>The consumer completes payment through the configured provider or POS flow.</span></div>
+    <div class="process-flow__step"><strong>Receive result</strong><span>MUWE returns a final or in-progress business result.</span></div>
+    <div class="process-flow__step"><strong>Recover uncertainty</strong><span>Query before delivery; cancel only when success cannot be proven in time.</span></div>
+  </div>
+</div>
 
-1. Cashier scans the customer's barcode.
+## Merchant-Initiated Payment
+
+1. Cashier, POS, or merchant MIS starts the payment request.
 2. Client submits `POST /upay/v2/pay` with a unique `client_sn`.
 3. If `biz_response.result_code` is `PAY_SUCCESS`, deliver goods.
 4. If it is `PAY_IN_PROGRESS`, or the network fails after the request may have reached MUWE, query by `client_sn`.
 5. If the order cannot reach a final state within the merchant timeout, call `POST /upay/v2/cancel`.
 6. Never reuse the same `client_sn` for a new payment attempt after a failed or uncertain pay request.
+
+## MIS-to-POS Order Push
+
+1. Merchant MIS or cashier system creates an order for a bound POS terminal.
+2. The POS receives the order and drives the consumer-facing payment flow.
+3. MUWE processes the payment through the configured provider.
+4. The client receives notification or polls `POST /upay/v2/query` until a final order status is reached.
 
 ## QR Pre-create
 

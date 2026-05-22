@@ -4,7 +4,7 @@
 
 `POST /upay/v2/pay`
 
-Creates a barcode payment transaction.
+Creates a merchant-initiated payment transaction.
 
 Required request fields:
 
@@ -13,7 +13,7 @@ Required request fields:
 | `terminal_sn` | string | Terminal serial number. |
 | `client_sn` | string | Unique order number in the client system. |
 | `total_amount` | string | Amount in cents. |
-| `dynamic_id` | string | Customer payment barcode. |
+| `dynamic_id` | string | Payment credential or provider payment token supplied by the consumer/provider flow. |
 | `subject` | string | Transaction subject. |
 | `operator` | string | Cashier or operator identifier. |
 

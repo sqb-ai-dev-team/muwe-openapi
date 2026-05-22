@@ -109,7 +109,7 @@ export default defineConfig({
     },
     footer: {
       message: 'MUWE OpenAPI documentation for bank and payment partners.',
-      copyright: 'Copyright AIMT NEXUS PTE. LTD.'
+      copyright: 'Copyright MUWE'
     }
   }
 });

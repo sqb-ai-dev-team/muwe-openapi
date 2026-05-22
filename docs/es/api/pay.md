@@ -2,7 +2,7 @@
 
 `POST /upay/v2/pay`
 
-Crea un pago con codigo de barras. Use `terminal_sn` y `terminal_key` para firmar.
+Crea una solicitud de pago iniciada por el comercio. El consumidor completa el pago mediante el metodo o flujo del proveedor configurado. Use `terminal_sn` y `terminal_key` para firmar.
 
 Campos requeridos: `terminal_sn`, `client_sn`, `total_amount`, `dynamic_id`, `subject`, `operator`.
 

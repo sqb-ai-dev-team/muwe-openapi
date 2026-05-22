@@ -2,7 +2,7 @@
 
 `POST /upay/v2/pay`
 
-Creates a barcode payment. MUWE determines the provider from `dynamic_id` unless `payway` is supplied.
+Pay creates a merchant-initiated payment request. The consumer completes payment through the configured payment method or provider flow.
 
 ## Request
 
@@ -11,8 +11,8 @@ Creates a barcode payment. MUWE determines the provider from `dynamic_id` unless
 | `terminal_sn` | string(32) | Yes | Terminal serial number. |
 | `client_sn` | string(32) | Yes | Unique order number in the client system. |
 | `total_amount` | string(10) | Yes | Amount in cents. |
-| `payway` | string | No | Provider override. Omit to infer from barcode. |
-| `dynamic_id` | string(32) | Yes | Customer payment barcode. |
+| `payway` | string | No | Provider override. Omit to infer from the payment credential when supported. |
+| `dynamic_id` | string(32) | Yes | Payment credential or provider payment token supplied by the consumer/provider flow. |
 | `subject` | string(64) | Yes | Transaction subject. |
 | `operator` | string(32) | Yes | Cashier or operator identifier. |
 | `description` | string(255) | No | Detailed transaction description. |

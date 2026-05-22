@@ -4,7 +4,7 @@
 
 `POST /upay/v2/pay`
 
-Crea una transacción de pago con código de barras.
+Crea una transaccion de pago iniciada por el comercio.
 
 Campos requeridos:
 
@@ -13,7 +13,7 @@ Campos requeridos:
 | `terminal_sn` | string | Número de serie de la terminal. |
 | `client_sn` | string | Número único de orden en el sistema del cliente. |
 | `total_amount` | string | Monto en centavos. |
-| `dynamic_id` | string | Código de pago del cliente. |
+| `dynamic_id` | string | Credencial de pago o token del proveedor suministrado por el flujo del consumidor/proveedor. |
 | `subject` | string | Concepto de la transacción. |
 | `operator` | string | Identificador del cajero u operador. |
 

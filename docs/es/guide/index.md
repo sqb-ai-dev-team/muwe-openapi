@@ -4,8 +4,9 @@ La API usa JSON sobre HTTPS. Todas las solicitudes y respuestas están codificad
 
 El alcance inicial es deliberadamente pequeño:
 
-- Aceptación de pagos con código de barras presentado por el cliente.
+- Aceptacion de pagos mediante solicitudes iniciadas por el comercio.
 - Pre-creación de órdenes QR.
+- Envio de ordenes de MIS a POS.
 - Consulta y recuperación de transacciones con estado incierto.
 - Reembolso, cancelación y reversa.
 
