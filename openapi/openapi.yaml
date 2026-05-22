@@ -1,0 +1,302 @@
+openapi: 3.1.0
+info:
+  title: MUWE OpenAPI
+  version: 0.1.0
+  description: Partner-facing payment API contract for MUWE Mexico.
+servers:
+  - url: https://vsi-api.shouqianba.com
+    description: Upay-compatible API host
+security:
+  - UpaySignature: []
+paths:
+  /upay/v2/pay:
+    post:
+      summary: Create a barcode payment
+      operationId: createBarcodePayment
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayRequest'
+      responses:
+        '200':
+          description: Payment response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+  /upay/v2/precreate:
+    post:
+      summary: Pre-create a QR payment order
+      operationId: precreatePayment
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrecreateRequest'
+      responses:
+        '200':
+          description: Pre-create response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+  /upay/v2/query:
+    post:
+      summary: Query a transaction
+      operationId: queryTransaction
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Query response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+  /upay/v2/refund:
+    post:
+      summary: Refund a transaction
+      operationId: refundTransaction
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Refund response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+  /upay/v2/cancel:
+    post:
+      summary: Cancel a transaction
+      operationId: cancelTransaction
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientOrderRequest'
+      responses:
+        '200':
+          description: Cancel response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+  /upay/v2/revoke:
+    post:
+      summary: Revoke a transaction
+      operationId: revokeTransaction
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientOrderRequest'
+      responses:
+        '200':
+          description: Revoke response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+components:
+  securitySchemes:
+    UpaySignature:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: '`Authorization: <sn> <MD5(raw_utf8_body + key)>`'
+  schemas:
+    PayRequest:
+      type: object
+      required: [terminal_sn, client_sn, total_amount, dynamic_id, subject, operator]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        client_sn:
+          type: string
+          maxLength: 32
+        total_amount:
+          type: string
+          maxLength: 10
+          description: Amount in cents.
+        payway:
+          type: string
+        dynamic_id:
+          type: string
+          maxLength: 32
+        subject:
+          type: string
+          maxLength: 64
+        operator:
+          type: string
+          maxLength: 32
+        description:
+          type: string
+          maxLength: 255
+        longitude:
+          type: string
+        latitude:
+          type: string
+        device_id:
+          type: string
+          maxLength: 32
+        extended:
+          type: object
+          additionalProperties:
+            type: string
+        goods_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoodsDetail'
+        reflect:
+          type: string
+          maxLength: 64
+        notify_url:
+          type: string
+          maxLength: 128
+    PrecreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/PayRequest'
+        - type: object
+          required: [payway]
+          properties:
+            sub_payway:
+              type: string
+            payer_uid:
+              type: string
+              maxLength: 64
+    QueryRequest:
+      allOf:
+        - $ref: '#/components/schemas/ClientOrderRequest'
+    RefundRequest:
+      type: object
+      required: [terminal_sn, client_sn, refund_request_no, refund_amount, operator]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        client_sn:
+          type: string
+          maxLength: 32
+        refund_request_no:
+          type: string
+          maxLength: 32
+        refund_amount:
+          type: string
+          maxLength: 10
+          description: Refund amount in cents.
+        operator:
+          type: string
+          maxLength: 32
+    ClientOrderRequest:
+      type: object
+      required: [terminal_sn, client_sn]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        client_sn:
+          type: string
+          maxLength: 32
+    GoodsDetail:
+      type: object
+      required: [goods_id, goods_name, quantity, price, promotion_type]
+      properties:
+        goods_id:
+          type: string
+          maxLength: 32
+        goods_name:
+          type: string
+          maxLength: 32
+        quantity:
+          type: integer
+        price:
+          type: integer
+          description: Unit price in cents.
+        promotion_type:
+          type: integer
+          enum: [0, 1]
+    TransactionResponse:
+      type: object
+      required: [result_code]
+      properties:
+        result_code:
+          type: string
+          examples: ['200', '400', '500']
+        error_code:
+          type: string
+        error_message:
+          type: string
+        biz_response:
+          type: object
+          properties:
+            result_code:
+              type: string
+            error_code:
+              type: string
+            error_message:
+              type: string
+            data:
+              $ref: '#/components/schemas/TransactionData'
+    TransactionData:
+      type: object
+      properties:
+        sn:
+          type: string
+        client_sn:
+          type: string
+        trade_no:
+          type: string
+        status:
+          type: string
+        order_status:
+          type: string
+          enum: [CREATED, PAID, PAY_CANCELED, REFUNDED, PARTIAL_REFUNDED, CANCELED, PAY_ERROR]
+        payway:
+          type: string
+        payway_name:
+          type: string
+        sub_payway:
+          type: string
+        payer_uid:
+          type: string
+        payer_login:
+          type: string
+        total_amount:
+          type: string
+        net_amount:
+          type: string
+        subject:
+          type: string
+        finish_time:
+          type: string
+        channel_finish_time:
+          type: string
+        operator:
+          type: string
+        reflect:
+          type: string
+        qr_code:
+          type: string
+        wap_pay_request:
+          type: string
