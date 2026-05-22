@@ -16,6 +16,7 @@ export default defineConfig({
           { text: 'Terminal APIs', link: '/terminal/activate' },
           { text: 'API', link: '/api/' },
           { text: 'Reference', link: '/reference/' },
+          { text: 'Console', link: '/console/' },
           { text: 'OpenAPI', link: '/openapi/' }
         ],
         sidebar: {
@@ -46,6 +47,9 @@ export default defineConfig({
             { text: 'Result & Error Codes', link: '/reference/result-codes' },
             { text: 'Order & Transaction Status', link: '/reference/order-status' },
             { text: 'Payment Providers', link: '/reference/payment-methods' }
+          ],
+          '/console/': [
+            { text: 'Developer Console', link: '/console/' }
           ]
         }
       }
@@ -60,6 +64,7 @@ export default defineConfig({
           { text: 'Terminales', link: '/es/terminal/activate' },
           { text: 'API', link: '/es/api/' },
           { text: 'Referencia', link: '/es/reference/' },
+          { text: 'Consola', link: '/es/console/' },
           { text: 'OpenAPI', link: '/es/openapi/' }
         ],
         sidebar: {
@@ -90,6 +95,9 @@ export default defineConfig({
             { text: 'Códigos de resultado y error', link: '/es/reference/result-codes' },
             { text: 'Estados', link: '/es/reference/order-status' },
             { text: 'Proveedores de pago', link: '/es/reference/payment-methods' }
+          ],
+          '/es/console/': [
+            { text: 'Consola de desarrollador', link: '/es/console/' }
           ]
         }
       }

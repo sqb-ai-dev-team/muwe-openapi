@@ -66,7 +66,7 @@ Authorization: 10298371039 <md5-of-signature-input>
 Content-Type: application/json
 ```
 
-Phase 2 will add an in-browser calculator. Until then, partner implementations must calculate the MD5 over the exact request body bytes plus the key.
+Use the [Developer Console](/console/) to reproduce the MD5 and Authorization header in browser. Partner implementations must calculate the MD5 over the exact request body bytes plus the key.
 
 ## Request Failure Handling
 
