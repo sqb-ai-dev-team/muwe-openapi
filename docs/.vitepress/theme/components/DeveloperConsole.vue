@@ -139,42 +139,46 @@ function useComputedWebhookSignature(): void {
 
 <template>
   <div class="developer-console">
-    <section class="console-hero">
+    <header class="console-header">
       <div>
-        <p class="eyebrow">Browser-only sandbox</p>
-        <h2>Sign, verify, simulate, and copy one clean integration example.</h2>
+        <p class="eyebrow">MUWE sandbox</p>
+        <h2>Developer Console</h2>
+        <p>Calculate signatures, simulate contract responses, verify notifications, and copy one production-shaped snippet.</p>
       </div>
-      <div class="hero-stat">
-        <strong>{{ operations.length }}</strong>
-        <span>mocked operations</span>
+      <div class="endpoint-card" aria-label="Selected endpoint">
+        <span>{{ selectedOperation.family }}</span>
+        <code>{{ selectedOperation.method }} {{ selectedOperation.path }}</code>
       </div>
-    </section>
+    </header>
 
-    <section class="operation-strip" aria-label="Operation selector">
-      <button
-        v-for="operation in operations"
-        :key="operation.id"
-        type="button"
-        :class="['operation-pill', { active: selectedOperationId === operation.id }]"
-        @click="loadOperation(operation.id)"
-      >
-        <span>{{ operation.family }}</span>
-        {{ operation.label }}
-      </button>
-    </section>
+    <section class="console-shell">
+      <nav class="operation-rail" aria-label="Operation selector">
+        <p>Operations</p>
+        <button
+          v-for="operation in operations"
+          :key="operation.id"
+          type="button"
+          :class="['operation-button', { active: selectedOperationId === operation.id }]"
+          @click="loadOperation(operation.id)"
+        >
+          <span>{{ operation.family }}</span>
+          <strong>{{ operation.label }}</strong>
+        </button>
+      </nav>
 
-    <section class="workspace">
-      <div class="primary-column">
-        <section class="console-panel signature-panel">
-          <div class="panel-heading">
+      <main class="workbench">
+        <section class="tool-panel">
+          <div class="panel-title">
             <div>
               <p class="eyebrow">Signature</p>
               <h3>Request calculator</h3>
             </div>
-            <code>{{ selectedOperation.method }} {{ selectedOperation.path }}</code>
+            <button type="button" class="ghost-button" @click="copy(authorizationHeader, 'authorization-top')">
+              {{ copied === 'authorization-top' ? 'Copied' : 'Copy auth' }}
+            </button>
           </div>
 
-          <div class="form-grid">
+          <div class="field-row">
             <label>
               Serial number
               <input v-model="terminalSn" spellcheck="false" />
@@ -186,29 +190,29 @@ function useComputedWebhookSignature(): void {
           </div>
           <label>
             Raw JSON body
-            <textarea v-model="rawBody" spellcheck="false" rows="8" />
+            <textarea v-model="rawBody" spellcheck="false" rows="9" />
           </label>
 
-          <div class="result-grid">
-            <div>
+          <div class="output-row">
+            <article>
               <span>MD5</span>
               <code>{{ signature }}</code>
               <button type="button" @click="copy(signature, 'signature')">
                 {{ copied === 'signature' ? 'Copied' : 'Copy' }}
               </button>
-            </div>
-            <div>
+            </article>
+            <article>
               <span>Authorization</span>
               <code>{{ authorizationHeader }}</code>
               <button type="button" @click="copy(authorizationHeader, 'authorization')">
                 {{ copied === 'authorization' ? 'Copied' : 'Copy' }}
               </button>
-            </div>
+            </article>
           </div>
         </section>
 
-        <section class="console-panel">
-          <div class="panel-heading">
+        <section class="tool-panel">
+          <div class="panel-title">
             <div>
               <p class="eyebrow">Simulator</p>
               <h3>Mock response</h3>
@@ -220,22 +224,22 @@ function useComputedWebhookSignature(): void {
             </select>
           </div>
 
-          <div class="request-summary">
+          <div class="request-line">
             <code>{{ requestUrl }}</code>
             <code>Authorization: {{ authorizationHeader }}</code>
           </div>
           <pre><code>{{ simulatedResponse }}</code></pre>
         </section>
-      </div>
+      </main>
 
-      <aside class="secondary-column">
-        <section class="console-panel">
-          <div class="panel-heading compact">
+      <aside class="side-stack">
+        <section class="tool-panel compact-panel">
+          <div class="panel-title">
             <div>
               <p class="eyebrow">Webhook</p>
               <h3>Signature verifier</h3>
             </div>
-            <button type="button" @click="useComputedWebhookSignature">Use computed</button>
+            <button type="button" class="ghost-button" @click="useComputedWebhookSignature">Use computed</button>
           </div>
 
           <label>
@@ -260,13 +264,13 @@ function useComputedWebhookSignature(): void {
           </div>
         </section>
 
-        <section class="console-panel examples-panel">
-          <div class="panel-heading compact">
+        <section class="tool-panel compact-panel examples-panel">
+          <div class="panel-title">
             <div>
               <p class="eyebrow">Examples</p>
               <h3>Generated snippet</h3>
             </div>
-            <button type="button" @click="copy(activeSnippet, `snippet-${selectedSnippetLanguage}`)">
+            <button type="button" class="ghost-button" @click="copy(activeSnippet, `snippet-${selectedSnippetLanguage}`)">
               {{ copied === `snippet-${selectedSnippetLanguage}` ? 'Copied' : 'Copy' }}
             </button>
           </div>
@@ -293,28 +297,14 @@ function useComputedWebhookSignature(): void {
 
 <style scoped>
 .developer-console {
+  --console-border: color-mix(in srgb, var(--vp-c-divider) 82%, transparent);
+  --console-surface: color-mix(in srgb, var(--vp-c-bg) 94%, var(--vp-c-bg-soft));
+  --console-muted: color-mix(in srgb, var(--vp-c-bg-soft) 82%, var(--vp-c-bg));
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
-}
-
-.console-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  padding: 22px;
-  background:
-    linear-gradient(135deg, rgba(22, 163, 74, 0.12), transparent 42%),
-    var(--vp-c-bg-soft);
-}
-
-.console-hero h2 {
-  max-width: 760px;
-  margin: 4px 0 0;
-  font-size: 26px;
-  line-height: 1.2;
+  width: min(1180px, calc(100vw - 48px));
+  margin: 24px 0 0 50%;
+  transform: translateX(-50%);
+  gap: 16px;
 }
 
 .eyebrow {
@@ -326,83 +316,144 @@ function useComputedWebhookSignature(): void {
   text-transform: uppercase;
 }
 
-.hero-stat {
+.console-header {
   display: grid;
-  align-content: center;
-  min-width: 132px;
-  border-left: 1px solid var(--vp-c-divider);
-  padding-left: 20px;
-}
-
-.hero-stat strong {
-  font-size: 34px;
-  line-height: 1;
-}
-
-.hero-stat span {
-  color: var(--vp-c-text-2);
-  font-size: 13px;
-}
-
-.operation-strip {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-
-.operation-pill {
-  display: grid;
-  gap: 2px;
-  min-width: 132px;
-  border: 1px solid var(--vp-c-divider);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 24px;
+  align-items: end;
+  min-width: 0;
+  border: 1px solid var(--console-border);
   border-radius: 8px;
-  padding: 10px 12px;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg);
-  text-align: left;
+  padding: 22px 24px;
+  background: linear-gradient(180deg, var(--console-muted), var(--vp-c-bg));
 }
 
-.operation-pill span {
+.console-header h2 {
+  margin: 3px 0 6px;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.console-header p:last-child {
+  max-width: 680px;
+  margin: 0;
   color: var(--vp-c-text-2);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.endpoint-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--console-border);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--vp-c-bg);
+}
+
+.endpoint-card span {
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-.operation-pill.active {
-  border-color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
+.endpoint-card code {
+  color: var(--vp-c-text-1);
+  font-size: 13px;
 }
 
-.workspace {
+.console-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr);
-  gap: 18px;
+  grid-template-columns: 190px minmax(0, 1fr) minmax(320px, 360px);
+  gap: 16px;
   align-items: start;
 }
 
-.primary-column,
-.secondary-column {
-  display: grid;
-  gap: 18px;
+.operation-rail,
+.workbench,
+.side-stack {
   min-width: 0;
 }
 
-.console-panel {
+.operation-rail {
+  position: sticky;
+  top: 80px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--console-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--console-surface);
+}
+
+.operation-rail p {
+  margin: 4px 6px 8px;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operation-button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--vp-c-text-1);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.operation-button span {
+  color: var(--vp-c-text-2);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operation-button strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.operation-button:hover,
+.operation-button.active {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.workbench,
+.side-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.side-stack {
+  position: sticky;
+  top: 80px;
+}
+
+.tool-panel {
   min-width: 0;
-  border: 1px solid var(--vp-c-divider);
+  border: 1px solid var(--console-border);
   border-radius: 8px;
   padding: 18px;
-  background: var(--vp-c-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: var(--console-surface);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.05);
 }
 
-.signature-panel {
-  background: var(--vp-c-bg-soft);
+.compact-panel {
+  padding: 16px;
 }
 
-.panel-heading {
+.panel-title {
   display: flex;
   gap: 14px;
   align-items: flex-start;
@@ -410,26 +461,14 @@ function useComputedWebhookSignature(): void {
   margin-bottom: 14px;
 }
 
-.panel-heading.compact {
-  align-items: center;
-}
-
-.panel-heading h3 {
+.panel-title h3 {
   margin: 2px 0 0;
   font-size: 18px;
   line-height: 1.25;
 }
 
-.panel-heading > code {
-  max-width: 48%;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 6px;
-  padding: 7px 9px;
-  background: var(--vp-c-bg);
-}
-
-.form-grid,
-.result-grid {
+.field-row,
+.output-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -447,7 +486,7 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--vp-c-divider);
+  border: 1px solid var(--console-border);
   border-radius: 6px;
   padding: 9px 10px;
   color: var(--vp-c-text-1);
@@ -460,7 +499,7 @@ textarea {
 }
 
 button {
-  border: 1px solid var(--vp-c-divider);
+  border: 1px solid var(--console-border);
   border-radius: 6px;
   padding: 7px 10px;
   color: var(--vp-c-text-1);
@@ -476,15 +515,19 @@ button:hover {
   background: var(--vp-c-brand-soft);
 }
 
-.result-grid > div {
+.ghost-button {
+  background: var(--vp-c-bg);
+}
+
+.output-row > article {
   min-width: 0;
-  border: 1px solid var(--vp-c-divider);
+  border: 1px solid var(--console-border);
   border-radius: 8px;
   padding: 12px;
   background: var(--vp-c-bg);
 }
 
-.result-grid span {
+.output-row span {
   display: block;
   margin-bottom: 8px;
   color: var(--vp-c-text-2);
@@ -493,34 +536,39 @@ button:hover {
   text-transform: uppercase;
 }
 
-.result-grid button {
+.output-row button {
   margin-top: 10px;
 }
 
 code {
+  color: var(--vp-c-text-1);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 pre {
-  max-height: 430px;
+  max-height: 420px;
   overflow: auto;
   border-radius: 8px;
-  padding: 12px;
+  margin: 0;
+  padding: 14px;
   background: var(--vp-code-block-bg);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
-.request-summary {
+.request-line {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.request-summary code {
-  border: 1px solid var(--vp-c-divider);
+.request-line code {
+  border: 1px solid var(--console-border);
   border-radius: 6px;
   padding: 8px 10px;
   background: var(--vp-c-bg-soft);
+  font-size: 12px;
 }
 
 .verifier-status {
@@ -544,7 +592,8 @@ pre {
 }
 
 .examples-panel pre {
-  min-height: 320px;
+  min-height: 300px;
+  max-height: 360px;
 }
 
 .language-tabs {
@@ -564,40 +613,69 @@ pre {
   background: var(--vp-c-brand-soft);
 }
 
-@media (max-width: 960px) {
-  .workspace {
+@media (max-width: 1120px) {
+  .console-shell {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+
+  .side-stack {
+    position: static;
+    grid-column: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .developer-console {
+    width: 100%;
+    margin-left: 0;
+    transform: none;
+  }
+
+  .console-header,
+  .console-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-rail {
+    position: static;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(148px, 1fr);
+    overflow-x: auto;
+  }
+
+  .operation-rail p {
+    display: none;
+  }
+
+  .side-stack {
+    grid-column: auto;
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .console-hero,
-  .panel-heading {
-    display: grid;
-  }
-
-  .hero-stat {
-    border-left: 0;
-    border-top: 1px solid var(--vp-c-divider);
-    padding: 14px 0 0;
-  }
-
-  .console-panel,
-  .console-hero {
+  .console-header,
+  .tool-panel {
     padding: 14px;
   }
 
-  .console-hero h2 {
+  .console-header h2 {
     font-size: 22px;
   }
 
-  .form-grid,
-  .result-grid {
+  .panel-title,
+  .field-row,
+  .output-row {
     grid-template-columns: 1fr;
   }
 
-  .panel-heading > code {
-    max-width: 100%;
+  .panel-title {
+    display: grid;
+  }
+
+  .language-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
