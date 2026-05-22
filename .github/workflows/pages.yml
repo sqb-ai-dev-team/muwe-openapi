@@ -10,6 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  DOCS_BASE: ${{ vars.DOCS_BASE || '/muwe-openapi/' }}
+  PAGES_CUSTOM_DOMAIN: ${{ vars.PAGES_CUSTOM_DOMAIN }}
+
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -32,8 +36,10 @@ jobs:
 
       - name: Build documentation
         run: npm run docs:build
-        env:
-          DOCS_BASE: /
+
+      - name: Configure custom domain
+        if: ${{ vars.PAGES_CUSTOM_DOMAIN != '' }}
+        run: printf '%s\n' "$PAGES_CUSTOM_DOMAIN" > docs/.vitepress/dist/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
