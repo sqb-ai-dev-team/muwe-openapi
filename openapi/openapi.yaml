@@ -1,14 +1,71 @@
 openapi: 3.1.0
 info:
   title: MUWE OpenAPI
-  version: 0.1.0
-  description: Partner-facing payment API contract for MUWE Mexico.
+  version: 0.2.0
+  description: Partner-facing Upay-compatible payment API contract for MUWE Mexico.
 servers:
   - url: https://vsi-api.shouqianba.com
     description: Upay-compatible API host
 security:
   - UpaySignature: []
+tags:
+  - name: Terminal
+  - name: Transactions
 paths:
+  /terminal/activate:
+    post:
+      summary: Activate a terminal
+      operationId: activateTerminal
+      tags: [Terminal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateRequest'
+      responses:
+        '200':
+          description: Terminal activation response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalCredentialResponse'
+  /terminal/checkin:
+    post:
+      summary: Rotate terminal key
+      operationId: checkinTerminal
+      tags: [Terminal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinRequest'
+      responses:
+        '200':
+          description: Terminal check-in response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalCredentialResponse'
+  /terminal/uploadLog:
+    post:
+      summary: Upload terminal diagnostics
+      operationId: uploadTerminalLog
+      tags: [Terminal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogUploadRequest'
+      responses:
+        '200':
+          description: Log upload response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommonResponse'
   /upay/v2/pay:
     post:
       summary: Create a barcode payment
@@ -91,7 +148,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClientOrderRequest'
+              $ref: '#/components/schemas/OrderLookupRequest'
       responses:
         '200':
           description: Cancel response
@@ -109,7 +166,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClientOrderRequest'
+              $ref: '#/components/schemas/OrderLookupRequest'
       responses:
         '200':
           description: Revoke response
@@ -125,6 +182,51 @@ components:
       name: Authorization
       description: '`Authorization: <sn> <MD5(raw_utf8_body + key)>`'
   schemas:
+    ActivateRequest:
+      type: object
+      required: [app_id, code, device_id]
+      properties:
+        app_id:
+          type: string
+        code:
+          type: string
+        client_sn:
+          type: string
+          maxLength: 32
+        name:
+          type: string
+        device_id:
+          type: string
+        os_info:
+          type: string
+    CheckinRequest:
+      type: object
+      required: [terminal_sn, device_id]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        device_id:
+          type: string
+        os_info:
+          type: string
+        sdk_version:
+          type: string
+    LogUploadRequest:
+      type: object
+      required: [terminal_sn, device_id, log_type, content]
+      properties:
+        terminal_sn:
+          type: string
+          maxLength: 32
+        device_id:
+          type: string
+        log_type:
+          type: string
+        content:
+          type: string
+        occurred_at:
+          type: string
     PayRequest:
       type: object
       required: [terminal_sn, client_sn, total_amount, dynamic_id, subject, operator]
@@ -161,9 +263,7 @@ components:
           type: string
           maxLength: 32
         extended:
-          type: object
-          additionalProperties:
-            type: string
+          $ref: '#/components/schemas/ExtendedFields'
         goods_details:
           type: array
           items:
@@ -187,37 +287,56 @@ components:
               maxLength: 64
     QueryRequest:
       allOf:
-        - $ref: '#/components/schemas/ClientOrderRequest'
+        - $ref: '#/components/schemas/OrderLookupRequest'
+        - type: object
+          properties:
+            refund_request_no:
+              type: string
+              maxLength: 20
     RefundRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderLookupRequest'
+        - type: object
+          required: [refund_request_no, refund_amount, operator]
+          properties:
+            refund_request_no:
+              type: string
+              maxLength: 20
+            refund_amount:
+              type: string
+              maxLength: 10
+              description: Refund amount in cents.
+            operator:
+              type: string
+              maxLength: 32
+            extended:
+              $ref: '#/components/schemas/ExtendedFields'
+            goods_details:
+              type: array
+              items:
+                $ref: '#/components/schemas/GoodsDetail'
+    OrderLookupRequest:
       type: object
-      required: [terminal_sn, client_sn, refund_request_no, refund_amount, operator]
+      required: [terminal_sn]
+      anyOf:
+        - required: [sn]
+        - required: [client_sn]
       properties:
         terminal_sn:
           type: string
           maxLength: 32
+        sn:
+          type: string
+          maxLength: 16
         client_sn:
           type: string
           maxLength: 32
-        refund_request_no:
-          type: string
-          maxLength: 32
-        refund_amount:
-          type: string
-          maxLength: 10
-          description: Refund amount in cents.
-        operator:
-          type: string
-          maxLength: 32
-    ClientOrderRequest:
+    ExtendedFields:
       type: object
-      required: [terminal_sn, client_sn]
-      properties:
-        terminal_sn:
-          type: string
-          maxLength: 32
-        client_sn:
-          type: string
-          maxLength: 32
+      maxProperties: 24
+      additionalProperties:
+        type: string
+        maxLength: 256
     GoodsDetail:
       type: object
       required: [goods_id, goods_name, quantity, price, promotion_type]
@@ -230,48 +349,104 @@ components:
           maxLength: 32
         quantity:
           type: integer
+          maximum: 9999999999
         price:
           type: integer
+          maximum: 999999999
           description: Unit price in cents.
         promotion_type:
           type: integer
           enum: [0, 1]
-    TransactionResponse:
+    CommonResponse:
       type: object
       required: [result_code]
       properties:
         result_code:
           type: string
-          examples: ['200', '400', '500']
+          enum: ['200', '400', '500']
         error_code:
           type: string
         error_message:
           type: string
         biz_response:
           type: object
+          additionalProperties: true
+    TerminalCredentialResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommonResponse'
+        - type: object
           properties:
-            result_code:
-              type: string
-            error_code:
-              type: string
-            error_message:
-              type: string
-            data:
-              $ref: '#/components/schemas/TransactionData'
+            biz_response:
+              type: object
+              required: [terminal_sn, terminal_key]
+              properties:
+                terminal_sn:
+                  type: string
+                terminal_key:
+                  type: string
+    TransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommonResponse'
+        - type: object
+          properties:
+            biz_response:
+              type: object
+              properties:
+                result_code:
+                  $ref: '#/components/schemas/BusinessResultCode'
+                error_code:
+                  type: string
+                error_message:
+                  type: string
+                data:
+                  $ref: '#/components/schemas/TransactionData'
+    BusinessResultCode:
+      type: string
+      enum:
+        - PAY_SUCCESS
+        - PAY_FAIL
+        - PAY_IN_PROGRESS
+        - PAY_FAIL_ERROR
+        - PRECREATE_SUCCESS
+        - PRECREATE_FAIL
+        - SUCCESS
+        - REFUND_SUCCESS
+        - REFUND_ERROR
+        - CANCEL_SUCCESS
+        - CANCEL_ERROR
+        - CANCEL_ABORT_SUCCESS
+        - CANCEL_ABORT_ERROR
     TransactionData:
       type: object
       properties:
+        terminal_sn:
+          type: string
         sn:
           type: string
         client_sn:
+          type: string
+        client_tsn:
           type: string
         trade_no:
           type: string
         status:
           type: string
+          enum: [SUCCESS, FAIL_CANCELED, FAIL_ERROR, IN_PROG, ERROR_RECOVERY, PRE_SUCCESS]
         order_status:
           type: string
-          enum: [CREATED, PAID, PAY_CANCELED, REFUNDED, PARTIAL_REFUNDED, CANCELED, PAY_ERROR]
+          enum:
+            - CREATED
+            - PAID
+            - PAY_CANCELED
+            - REFUNDED
+            - PARTIAL_REFUNDED
+            - REFUND_INPROGRESS
+            - REFUND_ERROR
+            - CANCELED
+            - CANCEL_INPROGRESS
+            - CANCEL_ERROR
+            - INVALID_STATUS_CODE
+            - PAY_ERROR
         payway:
           type: string
         payway_name:
@@ -288,6 +463,8 @@ components:
           type: string
         subject:
           type: string
+        description:
+          type: string
         finish_time:
           type: string
         channel_finish_time:
@@ -300,3 +477,12 @@ components:
           type: string
         wap_pay_request:
           type: string
+        payment_list:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              amount_total:
+                type: string
