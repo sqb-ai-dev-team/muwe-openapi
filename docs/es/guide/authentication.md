@@ -25,3 +25,5 @@ Se firma el cuerpo JSON exacto en bytes UTF-8. No cambie el formato del JSON des
 | Check-in y transacciones | `terminal_sn` | `terminal_key` |
 
 `terminal_sn` y `terminal_key` se reciben después de una activación o check-in exitoso.
+
+Use la [Consola de desarrollador](/es/console/) para reproducir el MD5 y el encabezado Authorization en el navegador.
