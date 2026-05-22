@@ -2,6 +2,15 @@
 
 The protocol has three required business processes: terminal activation, terminal check-in, and transaction processing.
 
+<div class="process-flow" aria-label="Business process overview">
+  <div class="process-flow__row">
+    <div class="process-flow__step"><strong>Activate terminal</strong><span>Bind the physical or logical terminal and receive terminal credentials.</span></div>
+    <div class="process-flow__step"><strong>Check in</strong><span>Rotate the terminal key before daily transaction processing.</span></div>
+    <div class="process-flow__step"><strong>Create transaction</strong><span>Start a payment request, QR order, or MIS-to-POS pushed order.</span></div>
+    <div class="process-flow__step"><strong>Resolve result</strong><span>Use notification, query, cancel, refund, or revoke according to the final state.</span></div>
+  </div>
+</div>
+
 ## Terminal Activation
 
 Each terminal must be activated once before it can process transactions.
@@ -30,11 +39,14 @@ Transaction APIs are signed with `terminal_sn` and `terminal_key`.
 
 | Flow | API | Purpose |
 | --- | --- | --- |
-| Barcode payment | `POST /upay/v2/pay` | Cashier scans a customer payment barcode. |
+| Merchant-initiated payment | `POST /upay/v2/pay` | Merchant starts a payment request and the consumer completes payment through the configured provider flow. |
 | QR payment | `POST /upay/v2/precreate` | Merchant creates an order and displays a QR code or payment URL. |
+| MIS-to-POS order push | Partner integration | Merchant MIS or cashier system creates an order and pushes it to a bound POS terminal. |
 | Query | `POST /upay/v2/query` | Resolve uncertain results and fetch the latest order state. |
 | Refund | `POST /upay/v2/refund` | Refund a paid order, including multiple partial refunds. |
 | Cancel | `POST /upay/v2/cancel` | Cancel an unpaid or uncertain order. |
 | Revoke | `POST /upay/v2/revoke` | Same-day reversal when supported; use only when explicitly enabled. |
+
+MUWE supports MIS-to-POS order push scenarios in the same transaction lifecycle. A merchant MIS or cashier system can create an order, send it to a bound POS terminal, complete the consumer-facing payment flow on the POS, and then use notification or query to reconcile the final result.
 
 The client must treat network timeouts and `*_IN_PROGRESS` business results as uncertain. Query before showing final success or creating a replacement order.

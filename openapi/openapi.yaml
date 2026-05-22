@@ -68,8 +68,8 @@ paths:
                 $ref: '#/components/schemas/CommonResponse'
   /upay/v2/pay:
     post:
-      summary: Create a barcode payment
-      operationId: createBarcodePayment
+      summary: Create a merchant-initiated payment
+      operationId: createMerchantPayment
       tags: [Transactions]
       requestBody:
         required: true
@@ -243,9 +243,11 @@ components:
           description: Amount in cents.
         payway:
           type: string
+          description: Provider override. Omit to infer from the payment credential when supported.
         dynamic_id:
           type: string
           maxLength: 32
+          description: Payment credential or provider payment token supplied by the consumer/provider flow.
         subject:
           type: string
           maxLength: 64

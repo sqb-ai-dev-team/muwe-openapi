@@ -30,7 +30,7 @@ MUWE Mexico may enable only a subset of these values during onboarding. Do not h
 
 | `sub_payway` | Meaning |
 | --- | --- |
-| `1` | Barcode Payment |
+| `1` | Consumer-presented payment credential |
 | `2` | QR Code Payment |
 | `3` | WAP Payment |
 | `4` | Mini Payment |

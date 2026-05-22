@@ -6,10 +6,12 @@ The first documentation set covers the core Upay-compatible payment flow:
 
 - API request format and signing.
 - Terminal identity and key usage.
-- Transaction creation with barcode payment and QR pre-create.
+- Merchant-initiated payment requests, QR pre-create, and MIS-to-POS order push scenarios.
 - Query, refund, cancel, and revoke lifecycle operations.
 
 Use this documentation as the integration contract for bank, processor, and acquiring partners.
+
+MUWE also supports MIS-to-POS order push scenarios: a merchant MIS or cashier system can create an order and push it to a bound POS terminal, where the consumer-facing payment flow is completed and the final result can be queried or notified through the same transaction lifecycle.
 
 ## Base URL
 
