@@ -1,19 +1,33 @@
 # Payment Flow
 
-Payment APIs return request-level results in `result_code` and business results in `biz_response.result_code`. HTTP 200 does not mean the payment succeeded.
+Payment APIs return request-level results in `result_code` and business results in `biz_response.result_code`. HTTP 200 does not mean the payment succeeded. All payment requests are initiated from an activated customer terminal identity.
 
-<div class="process-flow" aria-label="Payment lifecycle">
-  <div class="process-flow__row">
-    <div class="process-flow__step"><strong>Create request</strong><span>Submit pay, pre-create, or a POS-bound order from the merchant system.</span></div>
-    <div class="process-flow__step"><strong>Consumer pays</strong><span>The consumer completes payment through the configured provider or POS flow.</span></div>
-    <div class="process-flow__step"><strong>Receive result</strong><span>MUWE returns a final or in-progress business result.</span></div>
-    <div class="process-flow__step"><strong>Recover uncertainty</strong><span>Query before delivery; cancel only when success cannot be proven in time.</span></div>
+<div class="sequence-diagram" aria-label="Payment lifecycle">
+  <div class="sequence-diagram__actors">
+    <span>Customer terminal</span>
+    <span>MUWE OpenAPI</span>
+    <span>Payment provider</span>
+    <span>Consumer</span>
+  </div>
+  <div class="sequence-diagram__body">
+    <div class="sequence-step"><strong>1</strong><p>Terminal submits signed pay, pre-create, or pushed order request with `terminal_sn`.</p></div>
+    <div class="sequence-step sequence-step--right"><strong>2</strong><p>MUWE validates terminal credentials, merchant scope, idempotency key, and provider route.</p></div>
+    <div class="sequence-step sequence-step--right"><strong>3</strong><p>Provider handles payment authorization or returns the consumer payment payload.</p></div>
+    <div class="sequence-step sequence-step--dashed"><strong>4</strong><p>Consumer completes payment in the configured channel or at the bound POS terminal.</p></div>
+    <div class="sequence-step sequence-step--right"><strong>5</strong><p>MUWE returns success, failure, or in-progress business status.</p></div>
+    <div class="sequence-step sequence-step--warn"><strong>6</strong><p>If the result is uncertain, query before delivery, cancel, refund, or retry decisions.</p></div>
   </div>
 </div>
 
 ## Merchant-Initiated Payment
 
-1. Cashier, POS, or merchant MIS starts the payment request.
+<div class="mini-sequence" aria-label="Merchant initiated payment sequence">
+  <div><strong>Customer terminal</strong><span>Creates order and calls `POST /upay/v2/pay` with a unique `client_sn`.</span></div>
+  <div><strong>MUWE OpenAPI</strong><span>Validates terminal signature, routes the request, and returns business result.</span></div>
+  <div><strong>Provider / consumer</strong><span>Completes payment or leaves the order in progress.</span></div>
+</div>
+
+1. Cashier, POS, or merchant MIS starts the payment request from an activated customer terminal.
 2. Client submits `POST /upay/v2/pay` with a unique `client_sn`.
 3. If `biz_response.result_code` is `PAY_SUCCESS`, deliver goods.
 4. If it is `PAY_IN_PROGRESS`, or the network fails after the request may have reached MUWE, query by `client_sn`.
@@ -22,12 +36,24 @@ Payment APIs return request-level results in `result_code` and business results 
 
 ## MIS-to-POS Order Push
 
+<div class="mini-sequence" aria-label="MIS to POS order push sequence">
+  <div><strong>Merchant MIS</strong><span>Creates an order for a selected bound POS terminal.</span></div>
+  <div><strong>Bound POS terminal</strong><span>Receives the order and drives the consumer payment flow.</span></div>
+  <div><strong>MUWE / provider</strong><span>Processes payment and exposes the final result by notification or query.</span></div>
+</div>
+
 1. Merchant MIS or cashier system creates an order for a bound POS terminal.
 2. The POS receives the order and drives the consumer-facing payment flow.
 3. MUWE processes the payment through the configured provider.
 4. The client receives notification or polls `POST /upay/v2/query` until a final order status is reached.
 
 ## QR Pre-create
+
+<div class="mini-sequence" aria-label="QR pre-create sequence">
+  <div><strong>Customer terminal</strong><span>Calls `POST /upay/v2/precreate` for a merchant order.</span></div>
+  <div><strong>MUWE OpenAPI</strong><span>Returns `qr_code` or provider payment payload.</span></div>
+  <div><strong>Consumer app</strong><span>Scans or opens the payment payload and completes payment.</span></div>
+</div>
 
 1. Client calls `POST /upay/v2/precreate`.
 2. MUWE returns `qr_code` or a provider payment payload.
@@ -46,9 +72,13 @@ Refunds are idempotent by `refund_request_no`.
 
 ## Cancel Recovery
 
-`cancel` is for unilateral or uncertain orders. Use it when the client cannot prove that a payment failed but must prevent later success.
+`cancel` is for unpaid or uncertain orders. Use it when the client cannot prove that a payment failed but must prevent later success.
 
 If `cancel` returns `CANCEL_SUCCESS`, the order is closed. If it returns `CANCEL_ERROR`, `CANCEL_ABORT_ERROR`, or a network timeout, keep querying and escalate if the order does not reach a final state.
+
+## Revoke
+
+`revoke` is not the same operation as `cancel`. Use `POST /upay/v2/revoke` only for same-day reversal of a paid order when the provider route explicitly supports it.
 
 ## Final Statuses
 
