@@ -115,6 +115,7 @@ response = requests.post(
   };
 });
 const activeSnippet = computed(() => snippets.value[selectedSnippetLanguage.value]);
+const highlightedSnippet = computed(() => highlightCode(activeSnippet.value, selectedSnippetLanguage.value));
 
 function loadOperation(operationId = selectedOperationId.value): void {
   selectedOperationId.value = operationId;
@@ -135,6 +136,50 @@ async function copy(value: string, label: string): Promise<void> {
 function useComputedWebhookSignature(): void {
   webhookSignature.value = webhookComputedSignature.value;
 }
+
+function selectSnippetLanguage(language: SnippetLanguage): void {
+  selectedSnippetLanguage.value = language;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function highlightCode(value: string, language: SnippetLanguage): string {
+  const escaped = escapeHtml(value);
+  const strings: string[] = [];
+  const stashString = (match: string) => {
+    const token = `@@STRING_${strings.length}@@`;
+    strings.push(`<span class="token string">${match}</span>`);
+    return token;
+  };
+  const restoreStrings = (marked: string) =>
+    marked.replace(/@@STRING_(\d+)@@/g, (_, index: string) => strings[Number(index)] || '');
+
+  if (language === 'curl') {
+    const marked = escaped
+      .replace(/(&#39;[^]*?&#39;)/g, stashString)
+      .replace(/(-[A-Z])\b/g, '<span class="token keyword">$1</span>')
+      .replace(/(--[a-z-]+)/g, '<span class="token keyword">$1</span>');
+    return restoreStrings(marked);
+  }
+
+  const keywordPattern =
+    language === 'python'
+      ? /\b(import|from|as|def|return|if|else|for|in|with|True|False|None)\b/g
+      : /\b(import|const|let|var|await|new|return|for|String|byte|class|public|static|void)\b/g;
+
+  const withoutStrings = escaped.replace(/(&quot;(?:\\.|[^])*?&quot;|&#39;(?:\\.|[^])*?&#39;|`(?:\\.|[^])*?`)/g, stashString);
+  const marked = withoutStrings
+    .replace(/(\/\/.*|#.*)$/gm, '<span class="token comment">$1</span>')
+    .replace(keywordPattern, '<span class="token keyword">$1</span>');
+  return restoreStrings(marked);
+}
 </script>
 
 <template>
@@ -142,7 +187,7 @@ function useComputedWebhookSignature(): void {
     <header class="console-header">
       <div>
         <p class="eyebrow">MUWE sandbox</p>
-        <h2>Developer Console</h2>
+        <h2>Sandbox workbench</h2>
         <p>Calculate signatures, simulate contract responses, verify notifications, and copy one production-shaped snippet.</p>
       </div>
       <div class="endpoint-card" aria-label="Selected endpoint">
@@ -283,12 +328,12 @@ function useComputedWebhookSignature(): void {
               role="tab"
               :aria-selected="selectedSnippetLanguage === language.id"
               :class="{ active: selectedSnippetLanguage === language.id }"
-              @click="selectedSnippetLanguage = language.id"
+              @click="selectSnippetLanguage(language.id)"
             >
               {{ language.label }}
             </button>
           </div>
-          <pre><code>{{ activeSnippet }}</code></pre>
+          <pre class="snippet-code"><code :class="`language-${selectedSnippetLanguage}`" v-html="highlightedSnippet"></code></pre>
         </section>
       </aside>
     </section>
@@ -301,10 +346,21 @@ function useComputedWebhookSignature(): void {
   --console-surface: color-mix(in srgb, var(--vp-c-bg) 94%, var(--vp-c-bg-soft));
   --console-muted: color-mix(in srgb, var(--vp-c-bg-soft) 82%, var(--vp-c-bg));
   display: grid;
-  width: min(1180px, calc(100vw - 48px));
-  margin: 24px 0 0 50%;
-  transform: translateX(-50%);
+  width: 100%;
+  margin-top: 28px;
   gap: 16px;
+}
+
+:global(.VPDoc:has(.developer-console) > .container) {
+  max-width: none !important;
+}
+
+:global(.VPDoc:has(.developer-console) > .container > .content) {
+  max-width: min(1160px, calc(100vw - var(--vp-sidebar-width, 0px) - 64px)) !important;
+}
+
+:global(.VPDoc:has(.developer-console) > .container > .content > .content-container) {
+  max-width: none !important;
 }
 
 .eyebrow {
@@ -318,7 +374,7 @@ function useComputedWebhookSignature(): void {
 
 .console-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 340px);
   gap: 24px;
   align-items: end;
   min-width: 0;
@@ -366,7 +422,7 @@ function useComputedWebhookSignature(): void {
 
 .console-shell {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) minmax(320px, 360px);
+  grid-template-columns: 172px minmax(430px, 1fr) minmax(300px, 340px);
   gap: 16px;
   align-items: start;
 }
@@ -496,6 +552,7 @@ textarea {
 
 textarea {
   resize: vertical;
+  min-height: 108px;
 }
 
 button {
@@ -557,6 +614,13 @@ pre {
   line-height: 1.55;
 }
 
+pre code {
+  display: block;
+  min-width: max-content;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
 .request-line {
   display: grid;
   gap: 8px;
@@ -596,6 +660,24 @@ pre {
   max-height: 360px;
 }
 
+.snippet-code {
+  background: var(--vp-code-block-bg);
+}
+
+.snippet-code :deep(.token.keyword) {
+  color: var(--vp-c-brand-1);
+  font-weight: 700;
+}
+
+.snippet-code :deep(.token.string) {
+  color: var(--vp-c-green-2);
+}
+
+.snippet-code :deep(.token.comment) {
+  color: var(--vp-c-text-3);
+  font-style: italic;
+}
+
 .language-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -628,8 +710,6 @@ pre {
 @media (max-width: 860px) {
   .developer-console {
     width: 100%;
-    margin-left: 0;
-    transform: none;
   }
 
   .console-header,

@@ -1,3 +1,7 @@
+---
+aside: false
+---
+
 # Developer Console
 
 Use these browser-only tools to reproduce MUWE request signatures, verify notification signatures, simulate contract responses, and generate integration snippets from the same examples used in the API documentation.
