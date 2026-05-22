@@ -3,7 +3,10 @@ import { computed, ref } from 'vue';
 import { baseUrl, contractExamples, mockResponse, type SimulatorScenario } from '../data/contractExamples';
 import { md5 } from '../utils/md5';
 
+type SnippetLanguage = 'curl' | 'node' | 'java' | 'python';
+
 const operations = contractExamples;
+const defaultOperation = operations.find((operation) => operation.id === 'pay') || operations[0];
 const scenarios: SimulatorScenario[] = [
   'SUCCESS',
   'IN_PROGRESS',
@@ -12,37 +15,46 @@ const scenarios: SimulatorScenario[] = [
   'ORDER_NOT_FOUND',
   'DUPLICATE_REQUEST'
 ];
+const snippetLanguages: Array<{ id: SnippetLanguage; label: string }> = [
+  { id: 'curl', label: 'cURL' },
+  { id: 'node', label: 'Node.js' },
+  { id: 'java', label: 'Java' },
+  { id: 'python', label: 'Python' }
+];
 
-const selectedOperationId = ref(operations[0].id);
+const selectedOperationId = ref(defaultOperation.id);
 const selectedScenario = ref<SimulatorScenario>('SUCCESS');
-const terminalSn = ref(operations[0].sn);
-const signingKey = ref(operations[0].key);
-const rawBody = ref(operations[0].rawBody);
-const webhookSn = ref(operations[0].sn);
-const webhookKey = ref(operations[0].key);
+const selectedSnippetLanguage = ref<SnippetLanguage>('curl');
+const terminalSn = ref(defaultOperation.sn);
+const signingKey = ref(defaultOperation.key);
+const rawBody = ref(defaultOperation.rawBody);
+const webhookSn = ref(defaultOperation.sn);
+const webhookKey = ref(defaultOperation.key);
 const webhookBody = ref(
   '{"sn":"7893259247405832","client_sn":"MEX202605220001","order_status":"PAID","total_amount":"1000","finish_time":"1779436800000"}'
 );
 const webhookSignature = ref('');
 const copied = ref('');
 
-const selectedOperation = computed(() => operations.find((item) => item.id === selectedOperationId.value) || operations[0]);
+const selectedOperation = computed(() => operations.find((item) => item.id === selectedOperationId.value) || defaultOperation);
 const signatureInput = computed(() => `${rawBody.value}${signingKey.value}`);
 const signature = computed(() => md5(signatureInput.value));
 const authorizationHeader = computed(() => `${terminalSn.value} ${signature.value}`);
 const webhookComputedSignature = computed(() => md5(`${webhookBody.value}${webhookKey.value}`));
 const webhookMatches = computed(() => webhookSignature.value.trim().toLowerCase() === webhookComputedSignature.value);
-const simulatedResponse = computed(() => JSON.stringify(mockResponse(selectedScenario.value, rawBody.value), null, 2));
+const simulatedResponse = computed(() =>
+  JSON.stringify(mockResponse(selectedScenario.value, selectedOperation.value.id, rawBody.value), null, 2)
+);
+const requestUrl = computed(() => `${baseUrl}${selectedOperation.value.path}`);
 
-const snippets = computed(() => {
-  const url = `${baseUrl}${selectedOperation.value.path}`;
+const snippets = computed<Record<SnippetLanguage, string>>(() => {
   const escapedBody = rawBody.value.replace(/'/g, "'\\''");
   const nodeBody = JSON.stringify(rawBody.value);
   const javaBody = rawBody.value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const pythonBody = JSON.stringify(rawBody.value);
 
   return {
-    curl: `curl -X POST '${url}' \\
+    curl: `curl -X POST '${requestUrl.value}' \\
   -H 'Content-Type: application/json' \\
   -H 'Authorization: ${authorizationHeader.value}' \\
   -d '${escapedBody}'`,
@@ -53,7 +65,7 @@ const key = '${signingKey.value}';
 const sn = '${terminalSn.value}';
 const sign = crypto.createHash('md5').update(rawBody + key, 'utf8').digest('hex');
 
-const response = await fetch('${url}', {
+const response = await fetch('${requestUrl.value}', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -78,7 +90,7 @@ for (byte b : digest) {
 }
 
 HttpRequest request = HttpRequest.newBuilder()
-  .uri(URI.create("${url}"))
+  .uri(URI.create("${requestUrl.value}"))
   .header("Content-Type", "application/json")
   .header("Authorization", sn + " " + sign)
   .POST(HttpRequest.BodyPublishers.ofString(rawBody, StandardCharsets.UTF_8))
@@ -93,7 +105,7 @@ sn = "${terminalSn.value}"
 sign = hashlib.md5((raw_body + key).encode("utf-8")).hexdigest()
 
 response = requests.post(
-    "${url}",
+    "${requestUrl.value}",
     headers={
         "Content-Type": "application/json",
         "Authorization": f"{sn} {sign}",
@@ -102,8 +114,10 @@ response = requests.post(
 )`
   };
 });
+const activeSnippet = computed(() => snippets.value[selectedSnippetLanguage.value]);
 
-function loadOperation(): void {
+function loadOperation(operationId = selectedOperationId.value): void {
+  selectedOperationId.value = operationId;
   const operation = selectedOperation.value;
   terminalSn.value = operation.sn;
   signingKey.value = operation.key;
@@ -125,120 +139,154 @@ function useComputedWebhookSignature(): void {
 
 <template>
   <div class="developer-console">
-    <section class="console-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Signature Calculator</h2>
-          <p>MD5 is calculated over the exact raw UTF-8 JSON body plus the signing key.</p>
-        </div>
-        <select v-model="selectedOperationId" @change="loadOperation" aria-label="Example operation">
-          <option v-for="operation in operations" :key="operation.id" :value="operation.id">
-            {{ operation.label }}
-          </option>
-        </select>
+    <section class="console-hero">
+      <div>
+        <p class="eyebrow">Browser-only sandbox</p>
+        <h2>Sign, verify, simulate, and copy one clean integration example.</h2>
       </div>
-
-      <label>
-        Serial number
-        <input v-model="terminalSn" spellcheck="false" />
-      </label>
-      <label>
-        Signing key
-        <input v-model="signingKey" spellcheck="false" />
-      </label>
-      <label>
-        Raw JSON body
-        <textarea v-model="rawBody" spellcheck="false" rows="8" />
-      </label>
-
-      <div class="result-grid">
-        <div>
-          <span>MD5</span>
-          <code>{{ signature }}</code>
-          <button type="button" @click="copy(signature, 'signature')">
-            {{ copied === 'signature' ? 'Copied' : 'Copy' }}
-          </button>
-        </div>
-        <div>
-          <span>Authorization</span>
-          <code>{{ authorizationHeader }}</code>
-          <button type="button" @click="copy(authorizationHeader, 'authorization')">
-            {{ copied === 'authorization' ? 'Copied' : 'Copy' }}
-          </button>
-        </div>
+      <div class="hero-stat">
+        <strong>{{ operations.length }}</strong>
+        <span>mocked operations</span>
       </div>
     </section>
 
-    <section class="console-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Webhook Signature Verifier</h2>
-          <p>The secret stays in this browser session. The verifier compares the received signature with MD5(raw body + key).</p>
-        </div>
-        <button type="button" @click="useComputedWebhookSignature">Use computed signature</button>
-      </div>
-
-      <label>
-        Notification serial number
-        <input v-model="webhookSn" spellcheck="false" />
-      </label>
-      <label>
-        Notification key
-        <input v-model="webhookKey" spellcheck="false" />
-      </label>
-      <label>
-        Raw notification body
-        <textarea v-model="webhookBody" spellcheck="false" rows="6" />
-      </label>
-      <label>
-        Received signature
-        <input v-model="webhookSignature" spellcheck="false" />
-      </label>
-
-      <div :class="['verifier-status', webhookSignature ? (webhookMatches ? 'ok' : 'bad') : 'idle']">
-        {{ webhookSignature ? (webhookMatches ? 'Signature matches' : 'Signature does not match') : 'Paste a received signature to verify' }}
-      </div>
+    <section class="operation-strip" aria-label="Operation selector">
+      <button
+        v-for="operation in operations"
+        :key="operation.id"
+        type="button"
+        :class="['operation-pill', { active: selectedOperationId === operation.id }]"
+        @click="loadOperation(operation.id)"
+      >
+        <span>{{ operation.family }}</span>
+        {{ operation.label }}
+      </button>
     </section>
 
-    <section class="console-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Request Simulator</h2>
-          <p>Mock responses use the Phase 1 contract examples and selectable failure modes.</p>
-        </div>
-        <select v-model="selectedScenario" aria-label="Simulator scenario">
-          <option v-for="scenario in scenarios" :key="scenario" :value="scenario">
-            {{ scenario }}
-          </option>
-        </select>
+    <section class="workspace">
+      <div class="primary-column">
+        <section class="console-panel signature-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Signature</p>
+              <h3>Request calculator</h3>
+            </div>
+            <code>{{ selectedOperation.method }} {{ selectedOperation.path }}</code>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Serial number
+              <input v-model="terminalSn" spellcheck="false" />
+            </label>
+            <label>
+              Signing key
+              <input v-model="signingKey" spellcheck="false" />
+            </label>
+          </div>
+          <label>
+            Raw JSON body
+            <textarea v-model="rawBody" spellcheck="false" rows="8" />
+          </label>
+
+          <div class="result-grid">
+            <div>
+              <span>MD5</span>
+              <code>{{ signature }}</code>
+              <button type="button" @click="copy(signature, 'signature')">
+                {{ copied === 'signature' ? 'Copied' : 'Copy' }}
+              </button>
+            </div>
+            <div>
+              <span>Authorization</span>
+              <code>{{ authorizationHeader }}</code>
+              <button type="button" @click="copy(authorizationHeader, 'authorization')">
+                {{ copied === 'authorization' ? 'Copied' : 'Copy' }}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="console-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Simulator</p>
+              <h3>Mock response</h3>
+            </div>
+            <select v-model="selectedScenario" aria-label="Simulator scenario">
+              <option v-for="scenario in scenarios" :key="scenario" :value="scenario">
+                {{ scenario }}
+              </option>
+            </select>
+          </div>
+
+          <div class="request-summary">
+            <code>{{ requestUrl }}</code>
+            <code>Authorization: {{ authorizationHeader }}</code>
+          </div>
+          <pre><code>{{ simulatedResponse }}</code></pre>
+        </section>
       </div>
 
-      <div class="request-summary">
-        <code>POST {{ selectedOperation.path }}</code>
-        <code>Authorization: {{ authorizationHeader }}</code>
-      </div>
-      <pre><code>{{ simulatedResponse }}</code></pre>
-    </section>
+      <aside class="secondary-column">
+        <section class="console-panel">
+          <div class="panel-heading compact">
+            <div>
+              <p class="eyebrow">Webhook</p>
+              <h3>Signature verifier</h3>
+            </div>
+            <button type="button" @click="useComputedWebhookSignature">Use computed</button>
+          </div>
 
-    <section class="console-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Generated Examples</h2>
-          <p>Snippets are generated from the same operation, raw body, serial number, and key currently loaded above.</p>
-        </div>
-      </div>
+          <label>
+            Notification serial number
+            <input v-model="webhookSn" spellcheck="false" />
+          </label>
+          <label>
+            Notification key
+            <input v-model="webhookKey" spellcheck="false" />
+          </label>
+          <label>
+            Raw notification body
+            <textarea v-model="webhookBody" spellcheck="false" rows="5" />
+          </label>
+          <label>
+            Received signature
+            <input v-model="webhookSignature" spellcheck="false" />
+          </label>
 
-      <div class="snippet-grid">
-        <article v-for="(snippet, name) in snippets" :key="name">
-          <div class="snippet-title">
-            <strong>{{ name }}</strong>
-            <button type="button" @click="copy(snippet, `snippet-${name}`)">
-              {{ copied === `snippet-${name}` ? 'Copied' : 'Copy' }}
+          <div :class="['verifier-status', webhookSignature ? (webhookMatches ? 'ok' : 'bad') : 'idle']">
+            {{ webhookSignature ? (webhookMatches ? 'Signature matches' : 'Signature does not match') : 'Paste a signature to verify' }}
+          </div>
+        </section>
+
+        <section class="console-panel examples-panel">
+          <div class="panel-heading compact">
+            <div>
+              <p class="eyebrow">Examples</p>
+              <h3>Generated snippet</h3>
+            </div>
+            <button type="button" @click="copy(activeSnippet, `snippet-${selectedSnippetLanguage}`)">
+              {{ copied === `snippet-${selectedSnippetLanguage}` ? 'Copied' : 'Copy' }}
             </button>
           </div>
-          <pre><code>{{ snippet }}</code></pre>
-        </article>
-      </div>
+
+          <div class="language-tabs" role="tablist" aria-label="Example language">
+            <button
+              v-for="language in snippetLanguages"
+              :key="language.id"
+              type="button"
+              role="tab"
+              :aria-selected="selectedSnippetLanguage === language.id"
+              :class="{ active: selectedSnippetLanguage === language.id }"
+              @click="selectedSnippetLanguage = language.id"
+            >
+              {{ language.label }}
+            </button>
+          </div>
+          <pre><code>{{ activeSnippet }}</code></pre>
+        </section>
+      </aside>
     </section>
   </div>
 </template>
@@ -246,40 +294,153 @@ function useComputedWebhookSignature(): void {
 <style scoped>
 .developer-console {
   display: grid;
-  gap: 24px;
+  gap: 18px;
   margin-top: 24px;
 }
 
-.console-panel {
+.console-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  padding: 20px;
+  padding: 22px;
+  background:
+    linear-gradient(135deg, rgba(22, 163, 74, 0.12), transparent 42%),
+    var(--vp-c-bg-soft);
+}
+
+.console-hero h2 {
+  max-width: 760px;
+  margin: 4px 0 0;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--vp-c-brand-1);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hero-stat {
+  display: grid;
+  align-content: center;
+  min-width: 132px;
+  border-left: 1px solid var(--vp-c-divider);
+  padding-left: 20px;
+}
+
+.hero-stat strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.hero-stat span {
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+.operation-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.operation-pill {
+  display: grid;
+  gap: 2px;
+  min-width: 132px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg);
+  text-align: left;
+}
+
+.operation-pill span {
+  color: var(--vp-c-text-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.operation-pill.active {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.primary-column,
+.secondary-column {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.console-panel {
+  min-width: 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--vp-c-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.signature-panel {
   background: var(--vp-c-bg-soft);
 }
 
 .panel-heading {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
-.panel-heading h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
+.panel-heading.compact {
+  align-items: center;
 }
 
-.panel-heading p {
-  margin: 0;
-  color: var(--vp-c-text-2);
+.panel-heading h3 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.panel-heading > code {
+  max-width: 48%;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--vp-c-bg);
+}
+
+.form-grid,
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 label {
   display: grid;
   gap: 6px;
   margin: 12px 0;
-  font-weight: 600;
+  color: var(--vp-c-text-1);
+  font-weight: 700;
 }
 
 input,
@@ -299,43 +460,41 @@ textarea {
 }
 
 button {
-  border: 1px solid var(--vp-c-brand-1);
+  border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
   padding: 7px 10px;
-  color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
   background: var(--vp-c-bg);
   cursor: pointer;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 button:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
   background: var(--vp-c-brand-soft);
 }
 
-.result-grid,
-.snippet-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-}
-
-.result-grid > div,
-.snippet-grid article {
+.result-grid > div {
   min-width: 0;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  padding: 14px;
+  padding: 12px;
   background: var(--vp-c-bg);
 }
 
-.result-grid span,
-.snippet-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+.result-grid span {
+  display: block;
   margin-bottom: 8px;
   color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-grid button {
+  margin-top: 10px;
 }
 
 code {
@@ -344,9 +503,9 @@ code {
 }
 
 pre {
-  max-height: 440px;
+  max-height: 430px;
   overflow: auto;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 12px;
   background: var(--vp-code-block-bg);
 }
@@ -357,10 +516,17 @@ pre {
   margin-bottom: 12px;
 }
 
+.request-summary code {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--vp-c-bg-soft);
+}
+
 .verifier-status {
   border-radius: 6px;
   padding: 10px 12px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .verifier-status.idle {
@@ -377,13 +543,61 @@ pre {
   background: var(--vp-c-red-soft);
 }
 
+.examples-panel pre {
+  min-height: 320px;
+}
+
+.language-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.language-tabs button {
+  padding: 8px 6px;
+}
+
+.language-tabs button.active {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+@media (max-width: 960px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
-  .console-panel {
+  .console-hero,
+  .panel-heading {
+    display: grid;
+  }
+
+  .hero-stat {
+    border-left: 0;
+    border-top: 1px solid var(--vp-c-divider);
+    padding: 14px 0 0;
+  }
+
+  .console-panel,
+  .console-hero {
     padding: 14px;
   }
 
-  .panel-heading {
-    display: grid;
+  .console-hero h2 {
+    font-size: 22px;
+  }
+
+  .form-grid,
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-heading > code {
+    max-width: 100%;
   }
 }
 </style>
